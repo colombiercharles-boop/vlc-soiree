@@ -24,6 +24,26 @@ button:disabled{opacity:.4;cursor:default}
 .q{line-height:1.65;font-size:15px;white-space:pre-line}
 .shake{animation:s .4s}@keyframes s{25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
 
+/* MENU */
+.dossier{display:flex;align-items:center;gap:14px;border:1px solid #2a2a2e;padding:12px 14px;cursor:default;transition:border-color .2s;position:relative;overflow:hidden}
+.dossier.unlocked{cursor:pointer;border-color:#3a3a44}
+.dossier.unlocked:hover{border-color:var(--gold);background:rgba(201,162,75,.05)}
+.dossier.active-ch{border-color:var(--gold);background:rgba(201,162,75,.08)}
+.dossier.locked{opacity:.45}
+.dossier.done{border-color:#2a4a2a}
+.dossier-icon{font-size:28px;min-width:36px;text-align:center}
+.dossier-info{flex:1}
+.dossier-num{font-size:9px;letter-spacing:.2em;color:var(--dim)}
+.dossier-title{font-size:13px;color:var(--fg);letter-spacing:.08em;margin-top:2px}
+.dossier-status{font-size:10px;margin-top:4px;letter-spacing:.1em}
+.dossier-status.ok{color:#4aaa5a}
+.dossier-status.cur{color:var(--gold)}
+.dossier-status.lock{color:var(--dim)}
+.dossier-stamp{position:absolute;right:12px;top:50%;transform:translateY(-50%) rotate(-8deg);font-size:11px;font-weight:bold;letter-spacing:.15em;padding:3px 8px;border:2px solid;opacity:.7}
+.dossier-stamp.done{color:#4aaa5a;border-color:#4aaa5a}
+.dossier-stamp.cur{color:var(--gold);border-color:var(--gold)}
+
+
 /* CH3 */
 
 :root{--bg:#0b0b0d;--fg:#e8e2d0;--gold:#c9a24b;--dim:#7d7a70;--red:#d2453b;--green:#4caf50;--card:#141417;--border:#2a2a2e}
@@ -105,6 +125,31 @@ button:hover{border-color:var(--gold)}
 </section>
 
 <section id="lobby" class="card hidden"><p class="dim" style="text-align:center">La séance s’ouvre dans</p><div class="big" id="cd">--:--:--</div></section>
+
+<section id="menu" class="hidden">
+  <div id="menu-video-wrap" style="width:100%;max-width:520px;margin:0 auto 18px;display:none">
+    <video id="menu-video" controls style="width:100%;border:1px solid #2a2a2e;display:block"></video>
+  </div>
+  <div style="border:1px solid var(--gold);padding:14px 16px;margin-bottom:16px">
+    <div style="font-size:9px;letter-spacing:.25em;color:var(--gold);margin-bottom:6px">▌ DOCUMENT CLASSIFIÉ — ACCÈS RESTREINT</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <div>
+        <div style="font-size:10px;color:var(--dim);letter-spacing:.1em">ENQUÊTEUR</div>
+        <div style="font-size:22px;color:var(--fg);font-weight:bold;letter-spacing:.2em">N° <span id="menu-num">--</span></div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:10px;color:var(--dim);letter-spacing:.1em">TEMPS · PÉNALITÉS</div>
+        <div style="font-size:15px;color:var(--gold);letter-spacing:.1em"><span id="menu-timer">--:--</span> · +<span id="menu-pen">0</span>s</div>
+      </div>
+    </div>
+  </div>
+  <div style="border:1px solid #2a2a2e;padding:10px 14px;margin-bottom:16px">
+    <div style="font-size:9px;letter-spacing:.2em;color:var(--dim);margin-bottom:8px">▌ CLASSEMENT EN DIRECT</div>
+    <div id="menu-lb"><span style="font-size:12px;color:var(--dim)">Aucun enquêteur pour l'instant.</span></div>
+  </div>
+  <div style="font-size:9px;letter-spacing:.2em;color:var(--dim);margin-bottom:10px">▌ DOSSIERS D'ENQUÊTE</div>
+  <div id="menu-dossiers" style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px"></div>
+</section>
 
 <template id="sc3"><div id="ch3-wrap"><main>
 <div class="top">
@@ -562,7 +607,7 @@ function render(){
           if(P.ch===3&&typeof initCh4==="function")try{initCh4();}catch(e){}
           if(P.ch===4&&typeof initCh5==="function")try{initCh5();}catch(e){}
         },150);
-    window.onCorrect=function(){P.ch++;if(P.ch>=CH.length)P.done=Date.now();save();setTimeout(render,900);};
+    window.onCorrect=function(){P.ch++;if(P.ch>=CH.length){P.done=Date.now();save();setTimeout(render,900);}else{save();setTimeout(function(){$('game').classList.add('hidden');$('menu').classList.remove('hidden');renderDossiers&&renderDossiers();renderMenuLb&&renderMenuLb();},900);}};
     window.addEventListener("message",function(e){
       if(e.data&&e.data.type==="addPen") window.addPen(e.data.val);
       if(e.data&&e.data.type==="onCorrect") window.onCorrect();
@@ -582,12 +627,62 @@ function tickGame(){
   $("send").disabled=left>0;if(left>0)$("aerr").textContent="Code erroné : +"+lastAdd+" s de pénalité. Blocage : "+left+" s";
   else if($("aerr").textContent.indexOf("Blocage")>-1)$("aerr").textContent="";
 }
+function showMenu(){
+  $("game").classList.add("hidden");
+  $("menu").classList.remove("hidden");
+  $("menu-num").textContent=P.n;
+  $("menu-pen").textContent=P.pen;
+  renderDossiers();
+  renderMenuLb();
+}
+
+function renderDossiers(){
+  var wrap=$("menu-dossiers"); wrap.innerHTML="";
+  var icons=["📁","📁","📁","📁","📁"];
+  var labels=["DOSSIER 01","DOSSIER 02","DOSSIER 03","DOSSIER 04","DOSSIER 05"];
+  CH.forEach(function(c,i){
+    var div=document.createElement("div");
+    var done=P.ch>i, current=P.ch===i, locked=P.ch<i;
+    div.className="dossier"+(done?" done":current?" unlocked active-ch":locked?" locked":" unlocked");
+    var stamp="";
+    if(done) stamp='<div class="dossier-stamp done">RÉSOLU</div>';
+    else if(current) stamp='<div class="dossier-stamp cur">EN COURS</div>';
+    var statusTxt=done?"Résolu":current?"En cours — cliquez pour accéder":"Classifié";
+    var statusCls=done?"ok":current?"cur":"lock";
+    div.innerHTML='<div class="dossier-icon">'+icons[i]+'</div><div class="dossier-info"><div class="dossier-num">'+labels[i]+'</div><div class="dossier-title">'+c.t+'</div><div class="dossier-status '+statusCls+'">'+statusTxt+'</div></div>'+stamp;
+    if(current){
+      div.addEventListener("click",function(){
+        $("menu").classList.add("hidden");
+        $("game").classList.remove("hidden");
+        render();
+      });
+    }
+    wrap.appendChild(div);
+  });
+}
+
+function renderMenuLb(){
+  if(!db) return;
+  db.query("scores",{order:"score",limit:10}).then(function(rows){
+    if(!rows||!rows.length) return;
+    var lb=$("menu-lb"); lb.innerHTML="";
+    rows.forEach(function(r,i){
+      var d=document.createElement("div");
+      d.style.cssText="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #1a1a1e;font-size:12px";
+      var isMe=r.id===P.n;
+      d.innerHTML='<span style="color:'+(isMe?"var(--gold)":"var(--dim)")+'">'+(i+1)+'. Enquêteur '+r.id+'</span><span style="color:'+(isMe?"var(--gold)":"var(--fg)")+'">'+fmt(r.score)+'</span>';
+      lb.appendChild(d);
+    });
+  }).catch(function(){});
+}
+
 function begin(){
   $("gate").classList.add("hidden");$("sub").textContent="Enquêteur "+P.n;
-  if(!started()){$("lobby").classList.remove("hidden")}else{$("game").classList.remove("hidden");render()}
+  if(!started()){$("lobby").classList.remove("hidden")}else{showMenu();}
   setInterval(function(){
     if(!started()){var s=(START-new Date())/1000;$("cd").textContent=Math.floor(s/3600)+":"+String(Math.floor(s/60)%60).padStart(2,"0")+":"+String(Math.floor(s)%60).padStart(2,"0")}
-    else if(!$("lobby").classList.contains("hidden")){$("lobby").classList.add("hidden");$("game").classList.remove("hidden");render()}
+    else if(!$("lobby").classList.contains("hidden")){$("lobby").classList.add("hidden");showMenu();}
+    if($("menu-timer")&&P){$("menu-timer").textContent=fmt((new Date()-START)/1000+P.pen);$("menu-pen").textContent=P.pen;}
     tickGame()},500);
   connect();save();
 }
@@ -601,7 +696,7 @@ $("enter").onclick=function(){
 $("send").onclick=async function(){
   if(Date.now()<lockUntil||!P||P.ch>=CH.length)return;
   var h=await sha(norm($("ans").value));
-  if(h===CH[P.ch].s){P.ch++;if(P.ch>=CH.length)P.done=Date.now();save();render()}
+  if(h===CH[P.ch].s){P.ch++;if(P.ch>=CH.length){P.done=Date.now();save();render();}else{save();$("game").classList.add("hidden");$("menu").classList.remove("hidden");renderDossiers&&renderDossiers();renderMenuLb&&renderMenuLb();}}
   else{P.errs=P.errs||{};var e=(P.errs[P.ch]||0)+1;P.errs[P.ch]=e;lastAdd=WRONG_PEN*e;P.pen+=lastAdd;lockUntil=Date.now()+WRONG_LOCK*1000;save();$("pen").textContent=P.pen;$("ans").classList.remove("shake");void $("ans").offsetWidth;$("ans").classList.add("shake")}
 };
 $("ans").addEventListener("keydown",function(e){if(e.key==="Enter")$("send").onclick()});
