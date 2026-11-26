@@ -717,16 +717,18 @@ function renderDossiers(){
         div.addEventListener("click",function(){
           $("menu").classList.add("hidden");
           $("game").classList.remove("hidden");
-          // Affiche le chapitre résolu en lecture seule (sans changer P.ch)
-          var c=CH[idx];
-          $("chTitle").textContent=c.t;$("chText").textContent=c.q;
-          var ci=$("ch-img");if(ci){if(c.img){ci.src=c.img;ci.style.display="block";}else{ci.style.display="none";ci.src="";}}
-          $("scene").innerHTML="";
-          // Cache les champs de réponse, montre message résolu
-          var rowEl=$("ans")?$("ans").parentNode:null; if(rowEl)rowEl.style.display="none";
-          var sendEl=$("send"); if(sendEl)sendEl.style.display="none";
-          var hintEl=$("hint"); if(hintEl)hintEl.style.display="none";
-          var aerrEl=$("aerr"); if(aerrEl){aerrEl.textContent="✓ Dossier résolu.";aerrEl.style.color="var(--gold)";}
+          // Affiche le chapitre résolu via render() en substituant temporairement P.ch
+          var realCh=P.ch;
+          P.ch=idx;
+          render();
+          P.ch=realCh;
+          // Après render, cache les champs de réponse et affiche message résolu
+          setTimeout(function(){
+            var rowEl=$("ans")?$("ans").parentNode:null; if(rowEl)rowEl.style.display="none";
+            var sendEl=$("send"); if(sendEl)sendEl.style.display="none";
+            var hintEl=$("hint"); if(hintEl)hintEl.style.display="none";
+            var aerrEl=$("aerr"); if(aerrEl){aerrEl.textContent="✓ Dossier résolu.";aerrEl.style.color="var(--gold)";}
+          },200);
         });
       })(i);
     }
